@@ -1122,14 +1122,18 @@ static inline void async_evt_rx_rdy(struct uart_stm32_data *data)
 		.data.rx.len = data->dma_rx.counter - data->dma_rx.offset,
 		.data.rx.offset = data->dma_rx.offset
 	};
+	/* When cyclic DMA is used, buffer positions are not updated - call callback every time*/
+    if (data->dma_rx.dma_cfg.cyclic == 0) {
+		/* update the current pos for new data */
+		data->dma_rx.offset = data->dma_rx.counter;
 
-	/* update the current pos for new data */
-	data->dma_rx.offset = data->dma_rx.counter;
-
-	/* send event only for new data */
-	if (event.data.rx.len > 0) {
-		async_user_callback(data, &event);
-	}
+		/* send event only for new data */
+		if (event.data.rx.len > 0) {
+			async_user_callback(data, &event);
+		}
+    }else{
+    	async_user_callback(data, &event);
+    }
 }
 
 static inline void async_evt_rx_err(struct uart_stm32_data *data, int err_code)
@@ -1528,23 +1532,27 @@ void uart_stm32_dma_rx_cb(const struct device *dma_dev, void *user_data,
 
 	async_evt_rx_rdy(data);
 
-	if (data->rx_next_buffer != NULL) {
-		async_evt_rx_buf_release(data);
+	/* buffer handling to be done when DMA cyclic mode is not used */
+	if (data->dma_rx.dma_cfg.cyclic == 0) {
+		if (data->rx_next_buffer != NULL) {
+			async_evt_rx_buf_release(data);
 
-		/* replace the buffer when the current
-		 * is full and not the same as the next
-		 * one.
-		 */
-		uart_stm32_dma_replace_buffer(uart_dev);
-	} else {
-		/* Buffer full without valid next buffer,
-		 * an UART_RX_DISABLED event must be generated,
-		 * but uart_stm32_async_rx_disable() cannot be
-		 * called in ISR context. So force the RX timeout
-		 * to minimum value and let the RX timeout to do the job.
-		 */
-		k_work_reschedule(&data->dma_rx.timeout_work, K_TICKS(1));
+			/* replace the buffer when the current
+			 * is full and not the same as the next
+			 * one.
+			 */
+			uart_stm32_dma_replace_buffer(uart_dev);
+		} else {
+			/* Buffer full without valid next buffer,
+			 * an UART_RX_DISABLED event must be generated,
+			 * but uart_stm32_async_rx_disable() cannot be
+			 * called in ISR context. So force the RX timeout
+			 * to minimum value and let the RX timeout to do the job.
+			 */
+			k_work_reschedule(&data->dma_rx.timeout_work, K_TICKS(1));
+		}
 	}
+
 }
 
 static int uart_stm32_async_tx(const struct device *dev,
@@ -2231,6 +2239,7 @@ static int uart_stm32_pm_action(const struct device *dev,
 		.dma_slot = STM32_DMA_SLOT(index, dir, slot),\
 		.channel_direction = STM32_DMA_CONFIG_DIRECTION(	\
 					STM32_DMA_CHANNEL_CONFIG(index, dir)),\
+		.cyclic =  STM32_DMA_CONFIG_CYCLIC(STM32_DMA_CHANNEL_CONFIG(index, dir)),\
 		.channel_priority = STM32_DMA_CONFIG_PRIORITY(		\
 				STM32_DMA_CHANNEL_CONFIG(index, dir)),	\
 		.source_data_size = STM32_DMA_CONFIG_##src_dev##_DATA_SIZE(\
