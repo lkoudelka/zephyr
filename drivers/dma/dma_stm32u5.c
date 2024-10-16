@@ -264,7 +264,6 @@ static void dma_stm32_irq_handler(const struct device *dev, uint32_t id)
 		return;
 	}
 	callback_arg = id + STM32_DMA_STREAM_OFFSET;
-	stream->busy = false;
 
 	/* The dma stream id is in range from STM32_DMA_STREAM_OFFSET..<dma-requests> */
 	if (stm32_dma_is_ht_irq_active(dma, id)) {
@@ -278,6 +277,9 @@ static void dma_stm32_irq_handler(const struct device *dev, uint32_t id)
 		if (!stream->hal_override) {
 			dma_stm32_clear_tc(dma, id);
 		}
+	    if (stream->cyclic == 0) {
+	    	stream->busy = false;
+	    }
 		stream->dma_callback(dev, stream->user_data, callback_arg, DMA_STATUS_COMPLETE);
 	} else {
 		LOG_ERR("Transfer Error.");
@@ -530,6 +532,7 @@ if (config->cyclic ==0){
 	  NodeConfig.SrcAddress = config->head_block->source_address;
 	  NodeConfig.BlkDataLength = config->head_block->block_size;
 	  LL_DMA_CreateLinkNode(&NodeConfig, &Node_GPDMA1_Channel0);
+	  stream->cyclic=true;
 
 	  LL_DMA_ConnectLinkNode(&Node_GPDMA1_Channel0, LL_DMA_CLLR_OFFSET5, &Node_GPDMA1_Channel0, LL_DMA_CLLR_OFFSET5);
 
