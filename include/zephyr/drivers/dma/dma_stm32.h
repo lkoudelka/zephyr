@@ -75,6 +75,8 @@
 #define STM32_DMA_CONFIG_PERIPHERAL_INC_FIXED(config)	((config >> 15) & 0x1)
 /* priority defined on bits 16-17 as 0, 1, 2, 3 */
 #define STM32_DMA_CONFIG_PRIORITY(config)		((config >> 16) & 0x3)
+/* mode normal or cyclic defined on bit 5 */
+#define STM32_DMA_CONFIG_CYCLIC(config)		((config >> 5) & 0x1)
 
 /* macro for features (only for dma-v1) */
 #if DT_HAS_COMPAT_STATUS_OKAY(st_stm32_dma_v1)

@@ -14,7 +14,7 @@
 
 /* Maximum data sent in single transfer (Bytes) */
 #define DMA_STM32_MAX_DATA_ITEMS	0xffff
-
+#define STM32_DMA_CONFIG_CYCLIC(config)		((config >> 5) & 0x1)
 struct dma_stm32_stream {
 	uint32_t direction;
 #ifdef CONFIG_DMAMUX_STM32

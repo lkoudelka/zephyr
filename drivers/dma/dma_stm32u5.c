@@ -498,8 +498,53 @@ static int dma_stm32_configure(const struct device *dev,
 
 	/* The request ID is stored in the dma_slot */
 	DMA_InitStruct.Request = config->dma_slot;
-
+if (config->cyclic ==0){
 	LL_DMA_Init(dma, dma_stm32_id_to_stream(id), &DMA_InitStruct);
+}else{
+	/*** testing code begin ***/
+
+	  LL_DMA_InitNodeTypeDef NodeConfig = {0};
+	  LL_DMA_LinkNodeTypeDef Node_GPDMA1_Channel0 = {0};
+	  LL_DMA_InitLinkedListTypeDef DMA_InitLinkedListStruct = {0};
+	/* GPDMA1_REQUEST_USART1_RX Init */
+	  NodeConfig.DestAllocatedPort = DMA_InitStruct.DestAllocatedPort;
+	  NodeConfig.DestHWordExchange = DMA_InitStruct.DestHWordExchange;
+	  NodeConfig.DestByteExchange = DMA_InitStruct.DestByteExchange;
+	  NodeConfig.DestBurstLength = DMA_InitStruct.DestBurstLength;
+	  NodeConfig.DestIncMode = DMA_InitStruct.DestIncMode;
+	  NodeConfig.DestDataWidth = DMA_InitStruct.DestDataWidth;
+	  NodeConfig.SrcAllocatedPort = DMA_InitStruct.SrcAllocatedPort;
+	  NodeConfig.SrcByteExchange = DMA_InitStruct.SrcByteExchange;
+	  NodeConfig.DataAlignment = DMA_InitStruct.DataAlignment;
+	  NodeConfig.SrcBurstLength = 1;
+	  NodeConfig.SrcIncMode = DMA_InitStruct.SrcIncMode;
+	  NodeConfig.SrcDataWidth = DMA_InitStruct.SrcDataWidth;
+	  NodeConfig.TransferEventMode = DMA_InitStruct.TransferEventMode;
+	  NodeConfig.TriggerPolarity = DMA_InitStruct.TriggerPolarity;
+	  NodeConfig.BlkHWRequest = DMA_InitStruct.BlkHWRequest;
+	  NodeConfig.Direction = DMA_InitStruct.Direction;
+	  NodeConfig.Request = DMA_InitStruct.Request;
+	  NodeConfig.UpdateRegisters = (LL_DMA_UPDATE_CTR1 | LL_DMA_UPDATE_CTR2 | LL_DMA_UPDATE_CBR1 | LL_DMA_UPDATE_CSAR | LL_DMA_UPDATE_CDAR | LL_DMA_UPDATE_CLLR);
+	  NodeConfig.NodeType = LL_DMA_GPDMA_LINEAR_NODE;
+	  NodeConfig.DestAddress = config->head_block->dest_address;
+	  NodeConfig.SrcAddress = config->head_block->source_address;
+	  NodeConfig.BlkDataLength = config->head_block->block_size;
+	  LL_DMA_CreateLinkNode(&NodeConfig, &Node_GPDMA1_Channel0);
+
+	  LL_DMA_ConnectLinkNode(&Node_GPDMA1_Channel0, LL_DMA_CLLR_OFFSET5, &Node_GPDMA1_Channel0, LL_DMA_CLLR_OFFSET5);
+
+	  LL_DMA_SetLinkedListBaseAddr(GPDMA1, dma_stm32_id_to_stream(id), (uint32_t)&Node_GPDMA1_Channel0);
+
+	  DMA_InitLinkedListStruct.Priority = LL_DMA_LOW_PRIORITY_LOW_WEIGHT;
+	  DMA_InitLinkedListStruct.LinkStepMode = LL_DMA_LSM_FULL_EXECUTION;
+	  DMA_InitLinkedListStruct.LinkAllocatedPort = DMA_InitStruct.DestAllocatedPort;
+	  DMA_InitLinkedListStruct.TransferEventMode = LL_DMA_TCEM_BLK_TRANSFER;
+	  LL_DMA_List_Init(GPDMA1, dma_stm32_id_to_stream(id), &DMA_InitLinkedListStruct);
+	  LL_DMA_ConfigLinkUpdate(dma, dma_stm32_id_to_stream(id), (LL_DMA_UPDATE_CTR1 | LL_DMA_UPDATE_CTR2 | LL_DMA_UPDATE_CBR1 | LL_DMA_UPDATE_CSAR | LL_DMA_UPDATE_CDAR | LL_DMA_UPDATE_CLLR), (uint32_t)&Node_GPDMA1_Channel0);
+	  LL_DMA_EnableIT_HT(GPDMA1, dma_stm32_id_to_stream(id));
+}
+
+  /*** testing code end ***/
 
 	LL_DMA_EnableIT_TC(dma, dma_stm32_id_to_stream(id));
 	LL_DMA_EnableIT_USE(dma, dma_stm32_id_to_stream(id));
