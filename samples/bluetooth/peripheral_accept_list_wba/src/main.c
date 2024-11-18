@@ -17,6 +17,8 @@
 #include <zephyr/bluetooth/hci.h>
 
 /* Custom Service Variables */
+static void remove_addr_from_filter_list(const bt_addr_le_t *addr);
+
 #define BT_UUID_CUSTOM_SERVICE_VAL \
 	BT_UUID_128_ENCODE(0x12345678, 0x1234, 0x5678, 0x1234, 0x56789abcdef0)
 
@@ -34,6 +36,8 @@ static struct bt_le_adv_param adv_param;
 static struct bt_le_adv_param adv_param_privacy;
 static int bond_count;
 static volatile int is_connected=0;
+static K_SEM_DEFINE(sem_security_changed, 0, 1);
+
 
 static ssize_t read_signed(struct bt_conn *conn, const struct bt_gatt_attr *attr,
 			   void *buf, uint16_t len, uint16_t offset)
@@ -103,9 +107,32 @@ static void disconnected(struct bt_conn *conn, uint8_t reason)
 	printk("Disconnected, reason 0x%02x %s\n", reason, bt_hci_err_to_str(reason));
 }
 
+static void security_changed_cb(struct bt_conn *conn, bt_security_t level,
+				enum bt_security_err sec_err)
+{
+	if (sec_err == 0) {
+		printk("Security changed: %u", level);
+		// k_sem_give(&sem_security_changed);
+	} else {
+		printk("Failed to set security level: %s(%d)",
+			bt_security_err_to_str(sec_err), sec_err);
+			
+			int err;
+
+			printk("Removing old key");
+			err = bt_unpair(BT_ID_DEFAULT, bt_conn_get_dst(conn));
+			if (err != 0) {
+				printk("Failed to remove old key: %d", err);
+			}else{
+				remove_addr_from_filter_list(bt_conn_get_dst(conn));
+			}
+	}
+}
+
 BT_CONN_CB_DEFINE(conn_callbacks) = {
 	.connected = connected,
-	.disconnected = disconnected
+	.disconnected = disconnected,
+	.security_changed = security_changed_cb,
 };
 
 static void add_bonded_addr_to_filter_list(const struct bt_bond_info *info, void *data)
@@ -117,6 +144,17 @@ static void add_bonded_addr_to_filter_list(const struct bt_bond_info *info, void
 	printk("Added %s to advertising accept filter list\n", addr_str);
 	bond_count++;
 }
+
+static void remove_addr_from_filter_list(const bt_addr_le_t *addr)
+{
+	char addr_str[BT_ADDR_LE_STR_LEN];
+
+	bt_le_filter_accept_list_remove(addr);
+	bt_addr_le_to_str(addr, addr_str, sizeof(addr_str));
+	printk("Remove %s from advertising accept filter list\n", addr_str);
+	bond_count--;
+}
+
 
 static void bt_ready(void)
 {
@@ -231,7 +269,7 @@ int main(void)
 	 while (1) {
 		// bt_foreach_bond(BT_ID_DEFAULT, add_bonded_addr_to_filter_list, NULL);
 		start_advertising();
-		// bt_conn_auth_info_cb_register(&bt_conn_auth_info);
+		bt_conn_auth_info_cb_register(&bt_conn_auth_info);
 	 	k_msleep(20000);
 	 	 while(is_connected==1){
 	 		k_msleep(1000);
@@ -239,7 +277,7 @@ int main(void)
 	 	stop_advertising();
 		
 	 	start_advertising_privacy();
-	// 	bt_conn_auth_info_cb_register(&bt_conn_auth_info);
+	 	bt_conn_auth_info_cb_register(&bt_conn_auth_info);
 	 	k_msleep(20000);
 	 	while(is_connected==1){
 	 		k_msleep(1000);
