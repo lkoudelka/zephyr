@@ -1,0 +1,255 @@
+/ {
+    adc0: adc {
+        compatible = "zephyr,adc-emul";
+        nchannels = <8>;
+        #io-channel-cells = <1>;
+        status = "okay";
+    };
+
+    gpio0: gpio {
+        compatible = "zephyr,gpio-emul";
+        ngpios = <16>;  
+        #gpio-cells = <2>;
+        gpio-controller;
+        status = "okay";
+    };
+
+    gpio_sim: gpio_sim {
+        compatible = "gpio-keys";
+        status = "okay";
+		sim_button_0: button_0 {
+			label = "User B1";
+			gpios = <&gpio0 0 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
+			zephyr,code = <INPUT_KEY_0>;
+		};
+		sim_button_1: button_1 {
+			label = "User B2";
+			gpios = <&gpio0 1 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
+			zephyr,code = <INPUT_KEY_1>;
+		};
+		sim_button_2: button_2 {
+			label = "User B3";
+			gpios = <&gpio0 2 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
+			zephyr,code = <INPUT_KEY_2>;
+		};
+    };
+    digital_out: led{ // digital outputs without PWM
+		compatible = "gpio-leds";
+		nucleo_cn4_13: nucleo_cn4_13 {  // Display.DCX (1==data,0=command)
+			gpios = <&gpiob 3 GPIO_ACTIVE_HIGH>;
+			label = "CN4_13 PB3";
+		};
+		nucleo_cn4_24: nucleo_cn4_24 { //Display.Backlight
+			gpios = <&gpioa 11 GPIO_ACTIVE_HIGH>;
+			label = "CN4_24 PA11";
+		};
+		nucleo_cn3_7: nucleo_cn3_7 { //haptic.ctrl
+			gpios = <&gpioh 3 GPIO_ACTIVE_HIGH>;
+			label = "CN3_7 PH3";
+		};
+		nucleo_cn3_23: nucleo_cn3_23 { //Display.Reset
+			gpios = <&gpioa 9 GPIO_ACTIVE_HIGH>;
+			label = "CN3_23 PA9";
+		};
+    };
+   
+	gpio_keys {
+		compatible = "gpio-keys";
+        nucleo_cn3_25: nucleo_cn3_25 {
+			label = "CN3_25 PC14";
+			gpios = <&gpioc 14 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
+
+		};
+		nucleo_cn4_34: nucleo_cn4_34 {
+			label = "CN4_34 PB7";
+			gpios = <&gpiob 7 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
+		};
+		nucleo_cn4_35: nucleo_cn4_35 {
+			label = "CN4_35 PB5";
+			gpios = <&gpiob 5 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
+		};
+		nucleo_cn4_36: nucleo_cn4_36 {
+			label = "CN4_36 PC13";
+			gpios = <&gpioc 13 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
+		};
+		nucleo_cn4_30: nucleo_cn4_30 {
+			label = "CN4_30 PB6";
+			gpios = <&gpiob 6 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
+		};
+		nucleo_cn4_27: nucleo_cn4_27 {
+			label = "CN4_27 PB14";
+			gpios = <&gpiob 14 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
+		};
+		nucleo_cn3_27: nucleo_cn3_27 {
+			label = "CN3_27 PC15";
+			gpios = <&gpioc 15 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
+		};
+        sim_power_switch: sim_power_switch {
+			label = "SimPowerSwitch";
+			gpios = <&gpio0 10 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
+        };
+        sim_batt_load_switch: sim_batt_load_switch{
+			label = "SimBattLoadSwitch";
+			gpios = <&gpio0 11 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
+        };
+        sim_laser_safety_off: sim_laser_safety_off{
+			label = "SimLaserSafetyOff";
+			gpios = <&gpio0 12 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
+        };
+	};
+
+    zephyr,user {
+        io-channels = <&adc4 2>, <&adc4 3>, <&adc4 1>, <&adc4 8>;
+    };
+    aliases {
+        mt-pwr-switch-ctrl = &sim_power_switch;
+        mt-display-dcx = &nucleo_cn4_13;
+        mt-display-backlight = &nucleo_cn4_24;
+        mt-display-reset = &nucleo_cn3_23;
+        mt-batt-load-switch = &sim_batt_load_switch;
+        mt-laser-safety-off = &sim_laser_safety_off;
+
+		mt-keypad-power = &sim_button_0;
+        mt-keypad-key1 = &sim_button_1;
+        mt-keypad-key2 = &nucleo_cn4_34;
+        mt-keypad-key3 = &nucleo_cn4_35;
+        mt-keypad-key4 = &nucleo_cn4_36;
+        mt-keypad-key5 = &nucleo_cn4_30;
+        mt-keypad-measure = &nucleo_cn4_27;
+
+        mt-i2c = &i2c1;
+		mt-display-spi = &spi1;
+	};
+};
+
+&spi1{
+	status = "okay";
+	dmas = <&gpdma1 0 2 STM32_DMA_PERIPH_TX
+		&gpdma1 1 1 STM32_DMA_PERIPH_RX>;
+    dma-names = "tx", "rx";
+};
+
+&gpdma1 {
+    status = "okay";
+};
+&adc4 {
+    // BattTemp, Temp, BattPlus, VLD
+	pinctrl-0 = <&adc4_in1_pa8>, <&adc4_in2_pa7>, <&adc4_in3_pa6>, <&adc4_in8_pa1>;
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+
+	channel@1 {
+		reg = <1>;
+		zephyr,gain = "ADC_GAIN_1";
+		zephyr,reference = "ADC_REF_INTERNAL";
+		zephyr,acquisition-time = <ADC_ACQ_TIME_MAX>;
+		zephyr,resolution = <12>;
+	};
+	channel@2 {
+		reg = <2>;
+		zephyr,gain = "ADC_GAIN_1";
+		zephyr,reference = "ADC_REF_INTERNAL";
+		zephyr,acquisition-time = <ADC_ACQ_TIME_MAX>;
+		zephyr,resolution = <12>;
+	};
+	channel@3 {
+		reg = <3>;
+		zephyr,gain = "ADC_GAIN_1";
+		zephyr,reference = "ADC_REF_INTERNAL";
+		zephyr,acquisition-time = <ADC_ACQ_TIME_MAX>;
+		zephyr,resolution = <12>;
+	};
+	channel@8 {
+		reg = <8>;
+		zephyr,gain = "ADC_GAIN_1";
+		zephyr,reference = "ADC_REF_INTERNAL";
+		zephyr,acquisition-time = <ADC_ACQ_TIME_MAX>;
+		zephyr,resolution = <12>;
+	};
+};
+
+/*
+/delete-node/ &boot_partition;
+/delete-node/ &slot0_partition;
+/delete-node/ &slot1_partition;
+/delete-node/ &scratch_partition;
+/delete-node/ &storage_partition;
+
+&flash0 {
+	partitions {
+		compatible = "fixed-partitions";
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		boot_partition: partition@0 {
+			label = "mcuboot";
+			reg = <0x00000000 DT_SIZE_K(64)>;
+		};
+        eeprom_partition: partition@10000 {
+			label = "eeprom";
+			reg = <0x00010000 DT_SIZE_K(8)>;
+		};
+		slot0_partition: partition@12000 {
+			label = "image-0";
+			reg = <0x00012000 DT_SIZE_K(948)>;
+		};
+		storage_partition: partition@ff000 {
+			label = "storage";
+			reg = <0x000ff000 DT_SIZE_K(4)>;
+		};
+	};
+};
+*/
+
+
+/* 
+&pinctrl {
+		spi1_no_miso: spi1_no_miso {
+			pinmux = <STM32_PINMUX('P', 3, GPIO)>;
+		};
+};
+*/
+
+/* 
+&spi1{
+	status = "okay";
+	clock-frequency = <100000>; // 100kHz. For debugging only
+	cs-gpios = <&gpiob 1 GPIO_ACTIVE_LOW>;
+	pinctrl-0 = <&spi1_sck_pb4>, <&spi1_miso_pb3>, <&spi1_mosi_pa15>;
+	pinctrl-names = "default";
+	channel@0{
+		reg = <0>;
+		pinctrl-0 = <&spi1_nss_pa12>;
+//		spi-max-frequency = <1000000>; // 1MHz
+	};	
+};	 
+*/
+/* 
+&timers16 {
+	status = "okay";
+	st,prescaler = <10>;
+	testpwm: pwm{
+		status = "okay";
+		label = "PWM test";
+		pinctrl-0 = <&tim16_ch1_pa2>;
+		pinctrl-names = "default";
+	};
+};
+
+*/
+/* does not work 
+&pinctrl{
+    mco_out{
+        pinctrl-0 = <&rcc_mco_pa8>;
+    };
+};
+*/
+/*
+MCO pin control:
+    /omit-if-no-ref/ rcc_mco_pa8: rcc_mco_pa8 {
+        pinmux = <STM32_PINMUX('A', 8, AF0)>;
+    };
+
+*/
+//#include "simulation.overlay"
