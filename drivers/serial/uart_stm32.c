@@ -1769,10 +1769,13 @@ static void uart_stm32_async_rx_timeout(struct k_work *work)
 	const struct device *dev = data->uart_dev;
 
 	LOG_DBG("rx timeout");
-
-	if (data->dma_rx.counter == data->dma_rx.buffer_length) {
-		uart_stm32_async_rx_disable(dev);
-	} else {
+	if (data->dma_rx.dma_cfg.cyclic == 0) {
+		if (data->dma_rx.counter == data->dma_rx.buffer_length) {
+			uart_stm32_async_rx_disable(dev);
+		} else {
+			uart_stm32_dma_rx_flush(dev, STM32_ASYNC_STATUS_TIMEOUT);
+		}
+	}else{
 		uart_stm32_dma_rx_flush(dev, STM32_ASYNC_STATUS_TIMEOUT);
 	}
 }
