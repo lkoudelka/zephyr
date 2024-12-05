@@ -1220,42 +1220,50 @@ static void uart_stm32_dma_rx_flush(const struct device *dev, int status)
 
 	size_t rx_rcv_len = 0;
 
-	switch (status) {
-	case DMA_STATUS_COMPLETE:
-		/* fully complete */
-		rx_rcv_len = data->dma_rx.buffer_length;
-//		data->dma_rx.offset = 0;
-		data->dma_rx.offset = data->dma_rx.counter;
-
-		break;
-	case DMA_STATUS_BLOCK:
-		/* half complete */
-		rx_rcv_len = data->dma_rx.buffer_length / 2;
-//		data->dma_rx.offset = data->dma_rx.buffer_length / 2;
-
-		data->dma_rx.offset = data->dma_rx.counter;
-
-		break;
-	default: /* likely STM32_ASYNC_STATUS_TIMEOUT */
-		if (dma_get_status(data->dma_rx.dma_dev,
-				   data->dma_rx.dma_channel, &stat) == 0) {
-			rx_rcv_len = data->dma_rx.buffer_length -
-				     stat.pending_length;
-			data->dma_rx.offset = data->dma_rx.counter;
-		}
-	}
-
 	if (data->dma_rx.dma_cfg.cyclic == 0) { /* NORMAL MODE */
+		if (dma_get_status(data->dma_rx.dma_dev,
+									   data->dma_rx.dma_channel, &stat) == 0) {
+								rx_rcv_len = data->dma_rx.buffer_length -
+									     stat.pending_length;
+
 		if (rx_rcv_len > data->dma_rx.offset) {
 			data->dma_rx.counter = rx_rcv_len;
 			async_evt_rx_rdy(data);
 		}
-	} else { /* CIRCULAR MODE */
-		data->dma_rx.counter = rx_rcv_len;
-		async_evt_rx_rdy(data);
-		if(status==DMA_STATUS_COMPLETE){
-			data->dma_rx.offset = 0;
 		}
+	} else { /* CIRCULAR MODE */
+		switch (status) {
+			case DMA_STATUS_COMPLETE:
+				/* fully complete */
+				data->dma_rx.counter = data->dma_rx.buffer_length;
+				break;
+			case DMA_STATUS_BLOCK:
+				/* half complete */
+				data->dma_rx.counter = data->dma_rx.buffer_length/2;
+
+				break;
+			default: /* likely STM32_ASYNC_STATUS_TIMEOUT */
+				if (dma_get_status(data->dma_rx.dma_dev,
+									   data->dma_rx.dma_channel, &stat) == 0) {
+								rx_rcv_len = data->dma_rx.buffer_length -
+									     stat.pending_length;
+								data->dma_rx.counter = rx_rcv_len;
+				}
+			}
+
+		async_evt_rx_rdy(data);
+		switch (status) {
+			case DMA_STATUS_COMPLETE:
+				/* fully complete */
+				data->dma_rx.offset = 0;
+				break;
+			case DMA_STATUS_BLOCK:
+				/* half complete */
+				data->dma_rx.offset = data->dma_rx.buffer_length / 2;
+				break;
+			default: /* likely STM32_ASYNC_STATUS_TIMEOUT */
+				data->dma_rx.offset +=rx_rcv_len-data->dma_rx.offset;
+			}
 	}
 }
 
