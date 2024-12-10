@@ -507,7 +507,7 @@ if (config->cyclic ==0){
 	/*** testing code begin ***/
 
 	  LL_DMA_InitNodeTypeDef NodeConfig = {0};
-	  LL_DMA_LinkNodeTypeDef Node_GPDMA1_Channel0 = {0};
+	   static LL_DMA_LinkNodeTypeDef Node_GPDMA1_Channel0 = {0};
 	  LL_DMA_InitLinkedListTypeDef DMA_InitLinkedListStruct = {0};
 	/* GPDMA1_REQUEST_USART1_RX Init */
 	  NodeConfig.DestAllocatedPort = DMA_InitStruct.DestAllocatedPort;
