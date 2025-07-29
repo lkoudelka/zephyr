@@ -16,6 +16,7 @@
 #include <cmsis_core.h>
 
 #include <stm32wbaxx_ll_bus.h>
+#include <stm32wbaxx_ll_gpio.h>
 #include <stm32wbaxx_ll_cortex.h>
 #include <stm32wbaxx_ll_pwr.h>
 #include <stm32wbaxx_ll_rcc.h>
@@ -30,6 +31,10 @@
 #include <zephyr/logging/log.h>
 
 LOG_MODULE_DECLARE(soc, CONFIG_SOC_LOG_LEVEL);
+
+#if !defined(CONFIG_DEBUG)
+static void disable_debug_pins(void);
+#endif
 
 #if defined(CONFIG_PM_S2RAM)
 SCB_Type backup_scb;
@@ -267,6 +272,7 @@ void stm32_power_init(void)
 #else
 	LL_DBGMCU_DisableDBGStandbyMode();
 	LL_DBGMCU_DisableDBGStopMode();
+	disable_debug_pins();
 #endif
 
 	/* Enable SRAM full retention */
@@ -283,3 +289,24 @@ void stm32_power_init(void)
 
   HAL_PWREx_SetREGVDDHPAInputSupply(PWR_RADIO_REG_VDDHPA_VD11);
 }
+
+#if !defined(CONFIG_DEBUG)
+static void disable_debug_pins(void)
+{
+    /* Enable GPIO clocks for PA and PB */
+    LL_AHB2_GRP1_EnableClock(LL_AHB2_GRP1_PERIPH_GPIOA);
+    LL_AHB2_GRP1_EnableClock(LL_AHB2_GRP1_PERIPH_GPIOB);
+
+    /* Set PA13, PA14, PA15 to analog mode */
+    LL_GPIO_SetPinMode(GPIOA, LL_GPIO_PIN_13, LL_GPIO_MODE_ANALOG);
+    LL_GPIO_SetPinMode(GPIOA, LL_GPIO_PIN_14, LL_GPIO_MODE_ANALOG);
+    LL_GPIO_SetPinMode(GPIOA, LL_GPIO_PIN_15, LL_GPIO_MODE_ANALOG);
+
+    /* Set PB3 to analog mode */
+    LL_GPIO_SetPinMode(GPIOB, LL_GPIO_PIN_3, LL_GPIO_MODE_ANALOG);
+
+	/* Enable GPIO clocks for PA and PB */
+    LL_AHB2_GRP1_DisableClock(LL_AHB2_GRP1_PERIPH_GPIOA);
+    LL_AHB2_GRP1_DisableClock(LL_AHB2_GRP1_PERIPH_GPIOB);
+}
+#endif
