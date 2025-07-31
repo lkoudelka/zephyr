@@ -106,6 +106,9 @@ static void set_mode_stop(uint8_t substate_id)
 	case 2: /* enter STOP1 mode */
 		LL_PWR_SetPowerMode(LL_PWR_MODE_STOP1);
 		break;
+	case 3: /* enter STOP1 mode */
+		LL_PWR_SetPowerMode(LL_PWR_MODE_STOP2);
+		break;
 	default:
 		LOG_DBG("Unsupported power state substate-id %u", substate_id);
 		break;

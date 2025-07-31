@@ -6,6 +6,21 @@
 #include <st/wba/stm32wba55.dtsi>
 
 / {
+	    cpus {
+            cpu0: cpu@0 {
+                cpu-power-states = <&stop0 &stop1 &stop2>;
+            };
+        };
+
+        power-states {
+            stop2: state3 {
+                compatible = "zephyr,power-state";
+                power-state-name = "suspend-to-idle";
+                substate-id = <3>;
+                min-residency-us = <800>;
+                exit-latency-us = <40>;
+            };
+        };
 	soc {
 		compatible = "st,stm32wba65", "st,stm32wba", "simple-bus";
 
