@@ -24,9 +24,21 @@ struct regulator_stm32_vrefbuf_data {
 
 struct regulator_stm32_vrefbuf_config {
 	struct regulator_common_config common;
+
+	
 	const struct stm32_pclken pclken[1];
 	const struct reset_dt_spec reset;
+
 	const struct regulator_stm32_vrefbuf_voltage *ref_voltages;
+	/*
+	 * Some STM32 series gate VREFBUF behind RCC clock/reset, described by
+	 * DT properties 'clocks' and 'resets'. Others (e.g. STM32WB) have no
+	 * such gates; in that case those DT properties are absent.
+	 *
+	 * We use a single flag because, for STM32 series where VREFBUF has a
+	 * clock gate, it also has a reset line in Zephyr DTS.
+	 */
+	bool has_clock;
 	bool vrefp_output_enable;
 	uint8_t ref_voltage_count;
 };
@@ -118,28 +130,32 @@ static int regulator_stm32_vrefbuf_get_voltage(const struct device *dev, int32_t
 static int regulator_stm32_vrefbuf_init(const struct device *dev)
 {
 	const struct regulator_stm32_vrefbuf_config *config = dev->config;
-	const struct device *const clk = DEVICE_DT_GET(STM32_CLOCK_CONTROL_NODE);
 
 	regulator_common_data_init(dev);
 
-	if (!device_is_ready(clk)) {
-		LOG_ERR("Clock control device not ready");
-		return -ENODEV;
-	}
+	/*
+	 * Optional clock/reset support:
+	 * - If DT has a 'clocks' property, enable the peripheral clock and
+	 *   deassert reset.
+	 * - If not, do nothing (e.g. STM32WB: VREFBUF is always clocked).
+	 */
+	if (config->has_clock) {
+		const struct device *const clk = DEVICE_DT_GET(STM32_CLOCK_CONTROL_NODE);
 
-	if (clock_control_on(clk, (clock_control_subsys_t)&config->pclken[0]) != 0) {
-		LOG_ERR("Could not enable clock");
-		return -EIO;
-	}
+		if (clock_control_on(clk, (clock_control_subsys_t)&config->pclken[0]) != 0) {
+			LOG_ERR("Could not enable clock");
+			return -EIO;
+		}
 
-	if (!device_is_ready(config->reset.dev)) {
-		LOG_ERR("Reset controller not ready");
-		return -ENODEV;
-	}
+		if (!device_is_ready(config->reset.dev)) {
+			LOG_ERR("Reset controller not ready");
+			return -ENODEV;
+		}
 
-	if (reset_line_deassert_dt(&config->reset) != 0) {
-		LOG_ERR("Could not deassert reset line");
-		return -EIO;
+		if (reset_line_deassert_dt(&config->reset) != 0) {
+			LOG_ERR("Could not deassert reset line");
+			return -EIO;
+		}
 	}
 
 	if (config->vrefp_output_enable) {
@@ -166,6 +182,22 @@ static DEVICE_API(regulator, api) = {
 		.uv = DT_PROP_BY_IDX(node_id, prop, idx)                                           \
 	},
 
+/*
+ * If the instance provides 'clocks', we assume it also provides 'resets'
+ * (true for STM32 series where VREFBUF is gated in Zephyr DTS).
+ *
+ * Keep .pclken as an array [1] to match the STM32_DT_INST_CLOCKS(inst)
+ * initializer style used across Zephyr STM32 drivers.
+ */
+#define VREFBUF_CLOCK_INIT(inst)                                                                   \
+	COND_CODE_1(DT_INST_NODE_HAS_PROP(inst, clocks),                                            \
+		    (.has_clock = true,                                                             \
+		     .pclken = STM32_DT_INST_CLOCKS(inst),                                          \
+		     .reset = RESET_DT_SPEC_GET(DT_DRV_INST(inst)),),                               \
+		    (.has_clock = false,                                                           \
+		     .pclken = {0},                                                                \
+		     .reset = (struct reset_dt_spec){0},))
+
 #define REGULATOR_STM32_VREFBUF_DEFINE(inst)                                                       \
 	static struct regulator_stm32_vrefbuf_data data_##inst;                                    \
                                                                                                    \
@@ -175,8 +207,7 @@ static DEVICE_API(regulator, api) = {
                                                                                                    \
 	static const struct regulator_stm32_vrefbuf_config config_##inst = {                       \
 		.common = REGULATOR_DT_INST_COMMON_CONFIG_INIT(inst),                              \
-		.pclken = STM32_DT_INST_CLOCKS(inst),                                              \
-		.reset = RESET_DT_SPEC_GET(DT_DRV_INST(inst)),                                     \
+		VREFBUF_CLOCK_INIT(inst)                                                          \
 		.vrefp_output_enable = DT_INST_PROP(inst, vrefp_output_enable),                    \
 		.ref_voltages = ref_voltages_##inst,                                               \
 		.ref_voltage_count = ARRAY_SIZE(ref_voltages_##inst),                              \
