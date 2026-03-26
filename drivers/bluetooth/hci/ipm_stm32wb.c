@@ -168,7 +168,7 @@ static void stm32wb_start_ble(uint32_t rf_clock)
 	    CFG_BLE_MAX_ATT_MTU,
 	    CFG_BLE_PERIPHERAL_SCA,
 	    CFG_BLE_CENTRAL_SCA,
-	    (rf_clock == STM32_SRC_LSE) ? CFG_BLE_LS_SOURCE : 0,
+	    CFG_BLE_LS_SOURCE,
 	    CFG_BLE_MAX_CONN_EVENT_LENGTH,
 	    CFG_BLE_HSE_STARTUP_TIME,
 	    CFG_BLE_VITERBI_MODE,
@@ -578,8 +578,7 @@ static int c2_reset(void)
 	err = clock_control_configure(clk, (clock_control_subsys_t) &clk_cfg[1],
 					NULL);
 	if (err < 0) {
-		LOG_ERR("Could not configure RF Wake up clock");
-		return err;
+		LOG_INF("RF Wake up clock configuration returned error %d, continuing (HSE/1024 in use)", err);
 	}
 
 	/* HSI48 clock and CLK48 clock source are enabled using the device tree */

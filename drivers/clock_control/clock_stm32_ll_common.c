@@ -1196,6 +1196,27 @@ int stm32_clock_control_init(const struct device *dev)
 	}
 #endif
 
+#if defined(CONFIG_SOC_SERIES_STM32WBX)
+	uint32_t rfwkp_src = DT_ENUM_IDX(DT_NODELABEL(rcc), st_rf_wakeup_clk);
+
+	switch (rfwkp_src) {
+	case 0:
+		LL_RCC_SetRFWKPClockSource(LL_RCC_RFWKP_CLKSOURCE_NONE);
+		break;
+	case 1:
+		LL_RCC_SetRFWKPClockSource(LL_RCC_RFWKP_CLKSOURCE_LSE);
+		break;
+#ifdef LL_RCC_RFWKP_CLKSOURCE_LSI
+	case 2:
+		LL_RCC_SetRFWKPClockSource(LL_RCC_RFWKP_CLKSOURCE_LSI);
+		break;
+#endif
+	case 3:
+		LL_RCC_SetRFWKPClockSource(LL_RCC_RFWKP_CLKSOURCE_HSE_DIV1024);
+		break;
+	}
+#endif
+
 	return 0;
 }
 
